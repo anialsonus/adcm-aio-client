@@ -1,5 +1,6 @@
 from functools import cached_property
 from typing import Literal, Self
+import json
 
 from adcm_aio_client.core.objects._accessors import (
     NonPaginatedChildAccessor,
@@ -110,3 +111,115 @@ class Component(InteractiveChildObject[Service]):
 
 class ComponentsNode(NonPaginatedChildAccessor[Service, Component, None]):
     class_type = Component
+
+
+class Prototype[ParentObject: InteractiveObject](InteractiveChildObject[ParentObject]):
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def display_name(self: Self) -> str:
+        return str(self._data["displayName"])
+
+    @property
+    def description(self: Self) -> str:
+        return str(self._data["description"])
+
+    @property
+    def type(self: Self) -> str:
+        return str(self._data["type"])
+
+    @property
+    def version(self: Self) -> str:
+        return str(self._data["version"])
+
+    @property
+    def license(self: Self) -> dict:
+        return json.loads(self._data["license"])
+
+    @cached_property
+    async def bundle(self: Self) -> Bundle:
+        bundle_id = self._data["bundle"]["id"]
+        response = await self._requester.get("bundles", bundle_id)
+
+        return self._construct(what=Bundle, from_data=response.as_dict())
+
+    def get_own_path(self: Self) -> Endpoint:
+        return (*self._parent.get_own_path(), "prototypes", self.id)
+
+
+class PrototypeNode[ParentObject: InteractiveObject](PaginatedChildAccessor[ParentObject, Prototype, None]):
+    class_type = Prototype
+
+
+class Concern[ParentObject: InteractiveObject](InteractiveChildObject[ParentObject]):
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def reason(self: Self) -> dict:
+        return json.loads(self._data["reason"])
+
+    @property
+    def is_blocking(self: Self) -> bool:
+        return bool(self._data["isBlocking"])
+
+    @property
+    def cause(self: Self) -> str:
+        return str(self._data["cause"])
+
+    @property
+    def owner(self: Self) -> dict:
+        return json.loads(self._data["owner"])
+
+    def get_own_path(self: Self) -> Endpoint:
+        return self._parent.get_own_path()
+
+
+class ConcernsNode(NonPaginatedChildAccessor):  # todo: need own accessor
+    class_type = Concern
+
+
+class HostProvider(Deletable, InteractiveObject):
+    # data-based properties
+
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def description(self: Self) -> str:
+        return str(self._data["description"])
+
+    @property
+    def is_upgradable(self: Self) -> str:
+        return str(self._data["isUpgradable"])
+
+    @property
+    def main_info(self: Self) -> str:
+        return str(self._data["mainInfo"])
+
+    def get_own_path(self: Self) -> Endpoint:
+        return "hostproviders", self.id
+
+    @cached_property
+    def prototype(self: Self) -> "PrototypeNode":
+        return PrototypeNode(parent=self, path=(*self.get_own_path(), "prototypes"), requester=self._requester)
+
+    @cached_property
+    def concerns(self: Self) -> "ConcernsNode":
+        return ConcernsNode(parent=self, path=self.get_own_path(), requester=self._requester)
