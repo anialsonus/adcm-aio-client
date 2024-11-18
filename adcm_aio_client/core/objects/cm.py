@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import cached_property
 from typing import Literal, Self
 
@@ -9,6 +10,15 @@ from adcm_aio_client.core.objects._accessors import (
 from adcm_aio_client.core.objects._base import InteractiveChildObject, InteractiveObject
 from adcm_aio_client.core.objects._common import Deletable
 from adcm_aio_client.core.types import Endpoint
+
+
+class ObjectType(Enum):
+    ADCM = "adcm"
+    CLUSTER = "cluster"
+    SERVICE = "service"
+    COMPONENT = "component"
+    PROVIDER = "provider"
+    HOST = "host"
 
 
 class Bundle(Deletable, InteractiveObject): ...
@@ -110,3 +120,78 @@ class Component(InteractiveChildObject[Service]):
 
 class ComponentsNode(NonPaginatedChildAccessor[Service, Component, None]):
     class_type = Component
+
+
+class Prototype[ParentObject: InteractiveObject](InteractiveChildObject[ParentObject]):
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def display_name(self: Self) -> str:
+        return str(self._data["displayName"])
+
+    @property
+    def description(self: Self) -> str:
+        return str(self._data["description"])
+
+    @property
+    def type(self: Self) -> ObjectType:
+        return ObjectType(self._data["type"])
+
+    @property
+    def version(self: Self) -> str:
+        return str(self._data["version"])
+
+    @property
+    def license(self: Self) -> dict:
+        return self._data["license"]
+
+    @cached_property
+    async def bundle(self: Self) -> Bundle:
+        bundle_id = self._data["bundle"]["id"]
+        response = await self._requester.get("bundles", bundle_id)
+
+        return self._construct(what=Bundle, from_data=response.as_dict())
+
+    def get_own_path(self: Self) -> Endpoint:
+        return (*self._parent.get_own_path(), "prototypes", self.id)
+
+
+class PrototypeNode[ParentObject: InteractiveObject](PaginatedChildAccessor[ParentObject, Prototype, None]):
+    class_type = Prototype
+
+
+class HostProvider(Deletable, InteractiveObject):
+    # data-based properties
+
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def description(self: Self) -> str:
+        return str(self._data["description"])
+
+    @property
+    def is_upgradable(self: Self) -> str:
+        return str(self._data["isUpgradable"])
+
+    @property
+    def main_info(self: Self) -> str:
+        return str(self._data["mainInfo"])
+
+    def get_own_path(self: Self) -> Endpoint:
+        return "hostproviders", self.id
+
+    @cached_property
+    def prototype(self: Self) -> "PrototypeNode":
+        return PrototypeNode(parent=self, path=(*self.get_own_path(), "prototypes"), requester=self._requester)
