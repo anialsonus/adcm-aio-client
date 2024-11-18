@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import cached_property
 from typing import Literal, Self
 
@@ -9,6 +10,15 @@ from adcm_aio_client.core.objects._accessors import (
 from adcm_aio_client.core.objects._base import InteractiveChildObject, InteractiveObject
 from adcm_aio_client.core.objects._common import Deletable
 from adcm_aio_client.core.types import Endpoint
+
+
+class ObjectType(Enum):
+    ADCM = "adcm"
+    CLUSTER = "cluster"
+    SERVICE = "service"
+    COMPONENT = "component"
+    PROVIDER = "provider"
+    HOST = "host"
 
 
 class Bundle(Deletable, InteractiveObject): ...
@@ -130,8 +140,8 @@ class Prototype[ParentObject: InteractiveObject](InteractiveChildObject[ParentOb
         return str(self._data["description"])
 
     @property
-    def type(self: Self) -> str:
-        return str(self._data["type"])
+    def type(self: Self) -> ObjectType:
+        return ObjectType(self._data["type"])
 
     @property
     def version(self: Self) -> str:
