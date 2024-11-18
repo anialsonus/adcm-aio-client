@@ -1,6 +1,5 @@
 from functools import cached_property
 from typing import Literal, Self
-import json
 
 from adcm_aio_client.core.objects._accessors import (
     NonPaginatedChildAccessor,
@@ -140,7 +139,7 @@ class Prototype[ParentObject: InteractiveObject](InteractiveChildObject[ParentOb
 
     @property
     def license(self: Self) -> dict:
-        return json.loads(self._data["license"])
+        return self._data["license"]
 
     @cached_property
     async def bundle(self: Self) -> Bundle:
@@ -155,39 +154,6 @@ class Prototype[ParentObject: InteractiveObject](InteractiveChildObject[ParentOb
 
 class PrototypeNode[ParentObject: InteractiveObject](PaginatedChildAccessor[ParentObject, Prototype, None]):
     class_type = Prototype
-
-
-class Concern[ParentObject: InteractiveObject](InteractiveChildObject[ParentObject]):
-    @property
-    def id(self: Self) -> int:
-        return int(self._data["id"])
-
-    @property
-    def name(self: Self) -> str:
-        return str(self._data["name"])
-
-    @property
-    def reason(self: Self) -> dict:
-        return json.loads(self._data["reason"])
-
-    @property
-    def is_blocking(self: Self) -> bool:
-        return bool(self._data["isBlocking"])
-
-    @property
-    def cause(self: Self) -> str:
-        return str(self._data["cause"])
-
-    @property
-    def owner(self: Self) -> dict:
-        return json.loads(self._data["owner"])
-
-    def get_own_path(self: Self) -> Endpoint:
-        return self._parent.get_own_path()
-
-
-class ConcernsNode(NonPaginatedChildAccessor):  # todo: need own accessor
-    class_type = Concern
 
 
 class HostProvider(Deletable, InteractiveObject):
@@ -219,7 +185,3 @@ class HostProvider(Deletable, InteractiveObject):
     @cached_property
     def prototype(self: Self) -> "PrototypeNode":
         return PrototypeNode(parent=self, path=(*self.get_own_path(), "prototypes"), requester=self._requester)
-
-    @cached_property
-    def concerns(self: Self) -> "ConcernsNode":
-        return ConcernsNode(parent=self, path=self.get_own_path(), requester=self._requester)
