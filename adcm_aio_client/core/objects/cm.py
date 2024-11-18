@@ -1,3 +1,4 @@
+from enum import Enum
 from functools import cached_property
 from typing import Literal, Self
 
@@ -9,6 +10,11 @@ from adcm_aio_client.core.objects._accessors import (
 from adcm_aio_client.core.objects._base import InteractiveChildObject, InteractiveObject
 from adcm_aio_client.core.objects._common import Deletable
 from adcm_aio_client.core.types import Endpoint
+
+
+class ADCMEntityStatus(str, Enum):
+    UP = "up"
+    DOWN = "down"
 
 
 class Bundle(Deletable, InteractiveObject): ...
@@ -46,9 +52,9 @@ class Cluster(Deletable, InteractiveObject):
 
     # object-specific methods
 
-    async def get_status(self: Self) -> Literal["up", "down"]:
+    async def get_status(self: Self) -> ADCMEntityStatus:
         response = await self._requester.get(*self.get_own_path())
-        return response.as_dict()["status"]
+        return ADCMEntityStatus(response.as_dict()["status"])
 
     async def set_ansible_forks(self: Self, value: int) -> Self:
         # todo
@@ -110,3 +116,56 @@ class Component(InteractiveChildObject[Service]):
 
 class ComponentsNode(NonPaginatedChildAccessor[Service, Component, None]):
     class_type = Component
+
+
+class ConfigsNode(PaginatedChildAccessor): ...
+
+
+class HostProvidersNode(PaginatedChildAccessor): ...
+
+
+class Host(InteractiveChildObject[Cluster | None]):
+    @property
+    def id(self: Self) -> int:
+        return int(self._data["id"])
+
+    @property
+    def name(self: Self) -> str:
+        return str(self._data["name"])
+
+    @property
+    def description(self: Self) -> str:
+        return str(self._data["description"])
+
+    @property
+    def status(self: Self) -> ADCMEntityStatus:
+        return ADCMEntityStatus(self._data["status"])
+
+    async def get_status(self: Self) -> ADCMEntityStatus:
+        response = await self._requester.get(*self.get_own_path())
+        return ADCMEntityStatus(response.as_dict()["status"])
+
+    @cached_property
+    def cluster(self: Self) -> ClustersNode | None:
+        if not self._data["cluster"]:
+            return
+        return ClustersNode(
+            path=("clusters", self._data["cluster"]["id"], *self.get_own_path()), requester=self._requester
+        )
+
+    @cached_property
+    def config(self: Self) -> "ConfigsNode":
+        return ConfigsNode(parent=self, path=(*self.get_own_path(), "config"), requester=self._requester)
+
+    @cached_property
+    def hostprovider(self: Self) -> "HostProvidersNode":
+        return HostProvidersNode(parent=None, path=(*self.get_own_path(), "hostprovider"), requester=self._requester)
+
+    def get_own_path(self: Self) -> Endpoint:
+        return "hosts", self.id
+
+
+class HostsNode(PaginatedAccessor[Host, None]):
+    class_type = Host
+
+    # TODO: define def __init__(self, hostprovider: Hostprovider, name: str, cluster: Cluster = None): ...
